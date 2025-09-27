@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+  <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
+  <style>
+    html,
+    body,
+    #container {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
+    .amap-mcode {
+      z-index: 1000;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 5px;
+      font-size: 12px;
+    }
+    .info-window {
+      padding: 10px;
+      background: white;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    .circle-label {
+      color: #000;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1.4;
+      text-shadow: 0px 0px 2px #fff;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      pointer-events: none;
+    }
+  </style>
+  <title>杭州区县价格分布图</title>
+</head>
+
+<body>
+  <div id="container"></div>
+  <div class="amap-mcode" id="mcode">
+    - GS(2021)6375号、GS(2021)648号
+  </div>
+
+  <script src="https://webapi.amap.com/maps?v=2.0&key=e498abd7fdd738d4ece497c098ab0d1a&plugin=AMap.Scale,AMap.ToolBar,AMap.DistrictSearch,AMap.Text"></script>
+
+  <script>
+    // 初始化地图
+    let map = new AMap.Map("container", {
+      zoom: 11,
+      center: [120.135489, 30.251428],
+      pitch: 0,
+      viewMode: '3D',
+      mapStyle: 'amap://styles/normal'  // 使用标准地图样式
+    });
+
+    // 添加比例尺和工具条
+    map.addControl(new AMap.Scale());
+    map.addControl(new AMap.ToolBar());
+
+    // 杭州区县数据（中心坐标和单价）
+    let hangzhouDistricts = [
+      { adcode: '330102', name: '上城区', center: [120.24, 30.30], price: '3.95' },
+      { adcode: '330105', name: '拱墅区', center: [120.16, 30.32], price: '3.76' },
+      { adcode: '330106', name: '西湖区', center: [120.09, 30.21], price: '4.23' },
+      { adcode: '330108', name: '滨江区', center: [120.18, 30.18], price: '3.69' },
+      { adcode: '330109', name: '萧山区', center: [120.30, 30.19], price: '2.92' },
+      { adcode: '330110', name: '余杭区', center: [119.97, 30.27], price: '2.76' },
+      { adcode: '330111', name: '富阳区', center: [119.95, 30.07], price: '1.86' },
+      { adcode: '330112', name: '临安区', center: [119.70, 30.23], price: '1.55' },
+      { adcode: '330113', name: '临平区', center: [120.27, 30.42], price: '1.79' },
+      { adcode: '330114', name: '钱塘区', center: [120.49, 30.32], price: '2.24' },
+      { adcode: '330122', name: '桐庐县', center: [119.69, 29.79], price: '1.31' },
+    ];
+
+    // 圆形覆盖物数组
+    let circleMarkers = [];
+
+    // 显示区县边界和价格圆
+    function showDistricts() {
+      // 清除旧的覆盖物
+      map.remove(circleMarkers);
+      circleMarkers = [];
+
+      // 设置行政区边界图层
+      new AMap.DistrictLayer.Province({
+        zIndex: 10,
+        adcode: [330100],  // 杭州市
+        depth: 2,
+        styles: {
+          'fill': function(props) {
+            // 设置半透明蓝色填充
+            return 'rgba(135,206,250,0.3)';
+          },
+          'province-stroke': '#1E90FF',
+          'city-stroke': '#1E90FF',
+          'county-stroke': '#0000CD',  // 深蓝色区县边界线
+          'county-stroke-width': 25  // 区县边界线宽度
+        }
+      }).setMap(map);
+
+
+      // 为每个区县创建圆形标注
+      hangzhouDistricts.forEach(district => {
+        // 使用浅蓝色作为圆形颜色
+        let baseColor = '#0C5AA6'; // 浅蓝色
+        let strokeColor = '#0C5AA6'; // 钢蓝色边框
+
+        // 创建圆形
+        let circle = new AMap.Circle({
+          center: district.center,
+          radius: 3000,  // 3公里半径
+          fillColor: baseColor,
+          strokeColor: strokeColor,
+          fillOpacity: 0.5, // 不透明
+          strokeWeight: 2,
+          zIndex: 15,
+          extData: {
+            district: district,
+            baseColor: baseColor,
+            strokeColor: strokeColor
+          }
+        });
+
+        // 创建圆形内的文字 - 区域名称和单价各占一行
+        let textContent = `<p>${district.name}<br/>单价${district.price}万/㎡</p>`;
+        let text = new AMap.Text({
+          text: textContent,
+          position: district.center,
+          anchor: 'center',
+          style: {
+            'background-color': 'transparent',
+            'border': 'none',
+            'font-size': '14px',
+            'font-weight': 'bold',
+            'color': '#000',
+            'text-align': 'center',
+            'text-shadow': '0 0 3px #fff',
+            'padding': '0'
+          },
+          zIndex: 16
+        });
+
+        // 鼠标悬停交互
+        circle.on('mouseover', function() {
+          circle.setOptions({
+            fillColor: '#FF0000',
+            strokeColor: '#8B0000' // 深红色边框
+          });
+          text.setStyle({
+            'font-size': '16px',
+            'color': '#fff',
+            'text-shadow': '0 0 3px #000'
+          });
+        });
+
+        circle.on('mouseout', function() {
+          circle.setOptions({
+            fillColor: baseColor,
+            strokeColor: strokeColor
+          });
+          text.setStyle({
+            'font-size': '14px',
+            'color': '#000',
+            'text-shadow': '0 0 3px #fff'
+          });
+        });
+
+        // 点击事件
+        circle.on('click', function() {
+          let districtInfo = circle.getExtData().district;
+          let infoWindow = new AMap.InfoWindow({
+            content: `<div class="info-window">
+                        <h3>${districtInfo.name}</h3>
+                        <p>房价：${districtInfo.price}万/㎡</p>
+                      </div>`,
+            offset: new AMap.Pixel(0, -30)
+          });
+
+          infoWindow.open(map, district.center);
+        });
+
+        // 添加到地图
+        map.add(circle);
+        map.add(text);
+
+        // 保存到数组中，方便清除
+        circleMarkers.push(circle);
+        circleMarkers.push(text);
+      });
+    }
+
+    // 初始加载地图时显示杭州区县
+    showDistricts();
+  </script>
+</body>
+
+</html>
